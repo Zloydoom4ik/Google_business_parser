@@ -13,7 +13,7 @@ import json
 import urllib.parse
 
 from gbp_parser import config
-from gbp_parser.places import load_places
+from gbp_parser.places import fill_from_google, load_places
 from gbp_parser.maps_client import RPC_URL, MapsSession, _payload
 from gbp_parser.parse import parse_item
 
@@ -27,7 +27,7 @@ def write(name, value):
 
 place = load_places()[-1]
 with MapsSession() as maps:
-    maps.open_place(place["maps_url"])
+    fill_from_google(place, *maps.open_place(place["maps_url"]))
     body, response = maps.fetch_gallery_page(place["fid"], place["mid"])
 
 OUT.mkdir(exist_ok=True)

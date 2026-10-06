@@ -15,19 +15,23 @@ def ensure_schema(conn):
 
 
 def upsert_place(conn, place):
-    """Insert or update a place by its Google id; return the row id."""
+    """Insert or update a place by its Google id; return (row id, folder).
+
+    The folder is fixed when the place is first stored: its files are already there, so a later
+    change of the name or address on Google must not move the place to another folder.
+    """
     row = conn.execute(
         """
         INSERT INTO places (fid, mid, name, address, maps_url, folder)
         VALUES (%(fid)s, %(mid)s, %(name)s, %(address)s, %(maps_url)s, %(folder)s)
         ON CONFLICT (fid) DO UPDATE SET
             mid = EXCLUDED.mid, name = EXCLUDED.name, address = EXCLUDED.address,
-            maps_url = EXCLUDED.maps_url, folder = EXCLUDED.folder
-        RETURNING id
+            maps_url = EXCLUDED.maps_url
+        RETURNING id, folder
         """,
         place,
     ).fetchone()
-    return row["id"]
+    return row["id"], row["folder"]
 
 
 def upsert_photo(conn, place_id, item, position):
