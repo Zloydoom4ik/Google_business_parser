@@ -43,7 +43,7 @@ python main.py status
 Пример вывода `status` для одной точки:
 
 ```
-Fusion Repair - 20 W 30th St
+Example Repair Shop - 45 Second Ave
   Google claims 127, listed 100; rows in the database 100; synced 2026-10-06 19:27
   owner photos 95 (files on disk 95, 311 MB), customer photos 3, videos 1, panoramas 1
   posts 10 (picture files on disk 10); synced 2026-10-06 19:12
@@ -85,7 +85,6 @@ Fusion Repair - 20 W 30th St
   `name` — буква в букву, как на Картах; `address` — адрес до первой запятой, как его показывают Карты на английском.
 
 Папка точки в `data\` называется `<название> - <адрес>` и закрепляется при первой выгрузке: если название или адрес на Google потом изменятся, папка останется прежней.
-
 Одна и та же точка дважды в файле не нужна: точка определяется номером `!1s0x…:0x…` в ссылке, а не названием.
 
 ## Как `sync` сверяет базу с Google
@@ -129,7 +128,7 @@ Fusion Repair - 20 W 30th St
 
 ## Сколько объектов выгружается: `PAGE_SIZE`
 
-У одной и той же точки Google называет три разных количества. Пример — Fusion Repair, 20 W 30th St (`places.id = 3`):
+У одной и той же точки Google называет три разных количества. Пример одной точки:
 
 | Что | Сколько | Где это видно |
 |---|---|---|
@@ -155,8 +154,9 @@ Google нигде не помечает дубликаты. Точные коп�
 
 ## Запросы к Google и его ответы
 
-Всё ниже — настоящие запросы и ответы при выгрузке фото точки Fusion Repair, 20 W 30th St (`places.id = 3`).
-Длинные служебные куски заменены на `…`. Запросы A и B делаются один раз за запуск, C–E — на каждую точку, F — на каждый новый файл.
+Ниже — запросы и ответы при выгрузке фото одной точки. Формат настоящий; название, адрес, номера точки и фото,
+ссылки, координаты и служебные метки заменены на выдуманные, длинные куски — на `…`.
+Запросы A и B делаются один раз за запуск, C–E — на каждую точку, F — на каждый новый файл.
 
 ### A. Начать сессию
 
@@ -164,14 +164,14 @@ Google нигде не помечает дубликаты. Точные коп�
 GET https://www.google.com/maps?hl=en
 ```
 
-Ответ: `200`, HTML. Google перенаправляет на страницу согласия с куки:
-`https://consent.google.com/m?continue=https://www.google.com/maps?hl=en&gl=NL&…`
+Ответ: `200`, HTML. Google перенаправляет на страницу согласия с куки (`XX` — страна, из которой идёт запрос):
+`https://consent.google.com/m?continue=https://www.google.com/maps?hl=en&gl=XX&…`
 
 ### B. Ответить «Отклонить все» на форму согласия
 
 ```
 POST https://consent.google.com/save
-gl=NL  hl=en  continue=https://www.google.com/maps?hl=en  set_eom=true
+gl=XX  hl=en  continue=https://www.google.com/maps?hl=en  set_eom=true
 + служебные поля со страницы согласия: bl, escs, x, m, app, pc, src, uxe, cm
 ```
 
@@ -182,26 +182,26 @@ gl=NL  hl=en  continue=https://www.google.com/maps?hl=en  set_eom=true
 ### C. Страница точки
 
 ```
-GET https://www.google.com/maps/place/Fusion+Repair/data=!4m6!3m5!1s0x89c25929d8effddf:0x36ef76158161a142!8m2!3d40.7461213!4d-73.9877555!16s%2Fg%2F11x0ds1nny?hl=en
+GET https://www.google.com/maps/place/Example+Repair+Shop/data=!4m6!3m5!1s0x0000000000000002:0x0000000000000002!8m2!3d40.7100000!4d-73.9900000!16s%2Fg%2F11bbbbbbbb?hl=en
 ```
 
 Ответ: `200`, HTML около 207 КБ. Из него берётся только одна ссылка — адрес карточки точки:
-`/maps/preview/place?authuser=0&hl=en&gl=nl&q=Fusion+Repair&pb=!1m21!1s0x89c25929d8effddf:0x36ef76158161a142!2sFusion+Repair!…`
+`/maps/preview/place?authuser=0&hl=en&gl=xx&q=Example+Repair+Shop&pb=!1m21!1s0x0000000000000002:0x0000000000000002!2sExample+Repair+Shop!…`
 
 ### D. Карточка точки
 
 ```
-GET https://www.google.com/maps/preview/place?authuser=0&hl=en&gl=nl&q=Fusion+Repair&pb=…
+GET https://www.google.com/maps/preview/place?authuser=0&hl=en&gl=xx&q=Example+Repair+Shop&pb=…
 ```
 
 Ответ: `200`, JSON около 108 КБ, первой строкой идёт защитная приставка `)]}'`. Используются два значения:
 
 ```
-[6][11] = "Fusion Repair"
-[6][39] = "20 W 30th St, New York, NY 10001, United States"
+[6][11] = "Example Repair Shop"
+[6][39] = "45 Second Ave, New York, NY 10003, United States"
 ```
 
-Они сверяются с `name` и `address` из `places.json`. Не совпало — точка пропускается.
+Из них берутся название и адрес точки. Если в `places.json` указаны `name` или `address`, они сверяются с этими значениями; не совпало — точка пропускается.
 
 ### E. Список галереи
 
@@ -216,8 +216,8 @@ f.req=[[["hspqX","<аргументы строкой>",null,"generic"]]]
 
 ```
 [2,null,
- ["0x89c25929d8effddf:0x36ef76158161a142",null,null,null,null,null,null,null,0,null,null,null,null,null,
-  [[null,null,null,"/g/11x0ds1nny"]]],
+ ["0x0000000000000002:0x0000000000000002",null,null,null,null,null,null,null,0,null,null,null,null,null,
+  [[null,null,null,"/g/11bbbbbbbb"]]],
  null,
  [null,[203,100],[null,20,null,null,1],null,null,null,
   [[[1,0,3],[2,1,2],[2,0,3],[8,0,3],[10,0,3],[10,1,2],[10,0,4],[9,1,2]],1],
@@ -226,7 +226,7 @@ f.req=[[["hspqX","<аргументы строкой>",null,"generic"]]]
  [null,1,null,1]]
 ```
 
-От запроса к запросу меняются три вещи: номер точки (`0x89c2…a142`), её второй номер (`/g/11x0ds1nny`) и блок
+От запроса к запросу меняются три вещи: номер точки (`0x0000…0002`), её второй номер (`/g/11bbbbbbbb`) и блок
 `[null,20,null,null,1]` — в нём `20` это `PAGE_SIZE`, а третье место — метка следующей страницы (в первом запросе `null`).
 Остальное скопировано из запроса, который шлёт сама страница Карт.
 
@@ -236,7 +236,7 @@ f.req=[[["hspqX","<аргументы строкой>",null,"generic"]]]
 )]}'
 
 26846
-[["wrb.fr","hspqX","[[[\"CIABIhAA3jU3tjjpRWe16FIACuEc\",10,12,null,null,null,[\"https://lh3.googleuserconten…
+[["wrb.fr","hspqX","[[[\"CIABIhAAAAAAAAAAAAAAAAAAAAAA\",10,12,null,null,null,[\"https://lh3.googleuserconten…
 ```
 
 После распаковки это список: `[объекты, счётчик, …, метка следующей страницы (место 5), …]`.
@@ -253,23 +253,23 @@ f.req=[[["hspqX","<аргументы строкой>",null,"generic"]]]
 Один объект из ответа, как его присылает Google:
 
 ```
-["CIABIhAA3jU3tjjpRWe16FIACuEc",                    номер фото
+["CIABIhAAAAAAAAAAAAAAAAAAAAAA",                    номер фото
  10, 12, null, null, null,                          10 = фото или видео; у панорамы на этом месте 0
- ["https://lh3.googleusercontent.com/gps-cs-s/AHRPTWlclwQc…D6PS24jq=w203-h135-k-no",   ссылка на файл (здесь превью)
+ ["https://lh3.googleusercontent.com/gps-cs-s/AHRPTWxxxxxx…xxxxxxxx=w203-h135-k-no",   ссылка на файл (здесь превью)
   "", [6045, 4030], [203, 100]],                    исходный размер 6045×4030
  null,
- [[3, -73.9875732, 40.7464216], [0, 90], [6045, 4030], 75],                            координаты
- "fkzFavL5Gt-u7_UPxeudmA8", "0ahUKEwjysNHT…", null, null, null, null,
- [[["0x89c25929d8effddf:0x36ef76158161a142", …, [[null, null, null, "/g/11x0ds1nny"]]]]],
+ [[3, -73.9900000, 40.7100000], [0, 90], [6045, 4030], 75],                            координаты
+ "xxxxxxxxxxxxxxxxxxxxxxx", "0ahUKEwxxxxxx…", null, null, null, null,
+ [[["0x0000000000000002:0x0000000000000002", …, [[null, null, null, "/g/11bbbbbbbb"]]]]],
  null, null, null, null, null,
- [null, [10, "CIABIhAA3jU3tjjpRWe16FIACuEc"], [10, 3, [4030, 6045]], null, null, […],
+ [null, [10, "CIABIhAAAAAAAAAAAAAAAAAAAAAA"], [10, 3, [4030, 6045]], null, null, […],
   [1,                                               кто добавил: 1 владелец, 2 клиент, 3 Google
    null, null, [7, 5], null,
    [null, null, "bizbuilder:gmb_on_local_universal_desktop", [6, 7, 4, 1, 3]],          через что загружено
    null, null,
    [2025, 2, 19, 14]]],                             дата загрузки: год, месяц, день, час
  1, null, null, null, null, null, null,
- ["-8520149508763419169", "3958512432219005250"], null, "wlMZ6ECJHUg"]
+ ["-1111111111111111111", "2222222222222222222"], null, "xxxxxxxxxxx"]
 ```
 
 Из него в таблицу `photos` идут: номер, тип, кто добавил, канал загрузки, дата, размер, координаты, ссылка без хвоста после `=`.
@@ -278,7 +278,7 @@ f.req=[[["hspqX","<аргументы строкой>",null,"generic"]]]
 ### F. Файл фото
 
 ```
-GET https://lh3.googleusercontent.com/gps-cs-s/AHRPTWlclwQc…D6PS24jq=s0
+GET https://lh3.googleusercontent.com/gps-cs-s/AHRPTWxxxxxx…xxxxxxxx=s0
 ```
 
 Ссылка та же, что в ответе E, только хвост `=w203-h135-k-no` заменён на `=s0` — «исходный размер».
