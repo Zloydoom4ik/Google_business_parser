@@ -23,7 +23,7 @@ class GalleryItem:
     raw: list
 
 
-def _dig(value, *path):
+def dig(value, *path):
     for index in path:
         if not isinstance(value, list) or index >= len(value) or value[index] is None:
             return None
@@ -41,22 +41,22 @@ def _uploaded_at(parts):
 def parse_item(raw):
     if raw[1] == 0:
         kind = "street_view"
-    elif _dig(raw, 26):             # list of video encodings
+    elif dig(raw, 26):             # list of video encodings
         kind = "video"
     else:
         kind = "photo"
-    url = _dig(raw, 6, 0) or ""
-    width, height = _dig(raw, 6, 2) or (None, None)
+    url = dig(raw, 6, 0) or ""
+    width, height = dig(raw, 6, 2) or (None, None)
     return GalleryItem(
         google_id=raw[0],
         kind=kind,
-        contributor=CONTRIBUTORS.get(_dig(raw, 21, 6, 0), "unknown"),
-        upload_source=_dig(raw, 21, 6, 5, 2),
-        uploaded_at=_uploaded_at(_dig(raw, 21, 6, 8)),
+        contributor=CONTRIBUTORS.get(dig(raw, 21, 6, 0), "unknown"),
+        upload_source=dig(raw, 21, 6, 5, 2),
+        uploaded_at=_uploaded_at(dig(raw, 21, 6, 8)),
         width=width,
         height=height,
-        lat=_dig(raw, 8, 0, 2),
-        lng=_dig(raw, 8, 0, 1),
+        lat=dig(raw, 8, 0, 2),
+        lng=dig(raw, 8, 0, 1),
         url=url if kind == "street_view" else url.rsplit("=", 1)[0],
         raw=raw,
     )

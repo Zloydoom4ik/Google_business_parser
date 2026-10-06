@@ -1,55 +1,39 @@
-"""Usage:  python main.py sync     pull galleries of all places from places.json, download owner photos
-        python main.py status   what is in the database
+"""Usage:  python main.py sync         pull photo galleries of all places from places.json, download owner photos
+        python main.py sync_posts   pull the latest posts of the same places, download their pictures
+        python main.py status       what is in the database
 
-`python -m gbp_parser sync` does the same.
+`python -m gbp_parser <command>` does the same.
 """
-import json
-import re
 import sys
-import urllib.parse
 from collections import Counter
 
 from . import config, db
 from .download import download_original
 from .maps_client import MapsSession
 from .parse import parse_item
-
-FORBIDDEN_IN_FOLDER = '<>:"/\\|?*'
-
-
-def load_places():
-    """Read places.json and derive the Google ids and the data folder from each entry."""
-    places = json.loads(config.PLACES_FILE.read_text(encoding="utf-8"))
-    for place in places:
-        url = urllib.parse.unquote(place["maps_url"])
-        place["fid"] = re.search(r"!1s(0x[0-9a-f]+:0x[0-9a-f]+)", url).group(1)
-        mid = re.search(r"!16s(/g/[^!?]+)", url)
-        place["mid"] = mid.group(1) if mid else None
-        folder = f"{place['name']} - {place['address']}"
-        place["folder"] = "".join(c for c in folder if c not in FORBIDDEN_IN_FOLDER)
-    return places
+from .places import verified_places
+from .posts import sync_posts
 
 
 def sync():
-    places = load_places()
     with db.connect() as conn, MapsSession() as maps:
         db.ensure_schema(conn)
-        for place in places:
-            print(f"\n{place['folder']}")
-            shown_name, shown_address = maps.open_place(place["maps_url"])
-            # Several places share a name, so both must match exactly what places.json says.
-            if shown_name != place["name"] or not shown_address.startswith(place["address"] + ","):
-                print(f"  SKIPPED: Google shows {shown_name!r} at {shown_address!r}")
-                continue
-            place_id = db.upsert_place(conn, place)
-
-            raw_items, google_total = maps.list_gallery(place["fid"], place["mid"])
-            items = [item for item in map(parse_item, raw_items) if item.kind != "street_view"]
+        for place, place_id in verified_places(conn, maps):
+            raw_items, google_claims = maps.list_gallery(place["fid"], place["mid"])
+            items = [parse_item(raw) for raw in raw_items]
             for position, item in enumerate(items):
                 db.upsert_photo(conn, place_id, item, position)
-            db.finish_place_sync(conn, place_id, google_total)
+            # Whatever Google no longer lists was removed from the profile: drop its row and its file.
+            # An empty listing is treated as a failed answer, not as "everything was removed".
+            if items:
+                for gone in db.delete_photos_not_listed(conn, place_id, [item.google_id for item in items]):
+                    if gone["file_path"]:
+                        (config.DATA_DIR / gone["file_path"]).unlink(missing_ok=True)
+                    print(f"  removed, no longer on Google: {gone['contributor']} {gone['kind']} "
+                          f"{gone['google_id']}")
+            db.finish_place_sync(conn, place_id, google_claims, len(items))
             counts = Counter((item.kind, item.contributor) for item in items)
-            print(f"  Google reports {google_total} gallery items, listed {len(raw_items)}: "
+            print(f"  Google claims {google_claims} gallery items, listed {len(items)}: "
                   + ", ".join(f"{n} {contributor} {kind}" for (kind, contributor), n in sorted(counts.items())))
 
             pending = db.owner_photos_without_file(conn, place_id)
@@ -65,15 +49,24 @@ def sync():
 def status():
     with db.connect() as conn:
         db.ensure_schema(conn)
+        posts = db.post_counts(conn)
         for row in db.status(conn):
             synced = row["last_synced_at"].strftime("%Y-%m-%d %H:%M") if row["last_synced_at"] else "never"
             print(f"{row['folder']}\n"
+                  f"  Google claims {row['google_claims']}, listed {row['google_listed']}; "
+                  f"rows in the database {row['rows']}; synced {synced}\n"
                   f"  owner photos {row['owner_photos']} (files on disk {row['downloaded']}, "
                   f"{row['bytes'] / 1e6:.0f} MB), customer photos {row['customer_photos']}, "
-                  f"videos {row['videos']}; Google reports {row['google_total']}; synced {synced}")
+                  f"videos {row['videos']}, panoramas {row['panoramas']}")
+            if row["id"] in posts:
+                p = posts[row["id"]]
+                print(f"  posts {p['posts']} (picture files on disk {p['files']}); "
+                      f"synced {p['synced'].strftime('%Y-%m-%d %H:%M')}")
+            else:
+                print("  posts: never synced")
 
 
-COMMANDS = {"sync": sync, "status": status}
+COMMANDS = {"sync": sync, "sync_posts": sync_posts, "status": status}
 
 
 def main():

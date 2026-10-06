@@ -17,7 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from gbp_parser import maps_client  # noqa: E402
-from gbp_parser.__main__ import load_places  # noqa: E402
+from gbp_parser.places import load_places  # noqa: E402
 
 USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36")

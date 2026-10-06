@@ -6,6 +6,7 @@ Plain HTTPS requests: no browser and no Google login.
 Google returns an empty gallery until the session has answered its cookie-consent form, so a session
 starts by opening Maps and submitting "Reject all" (checks/cookie_without_browser.py shows the effect).
 """
+import base64
 import html
 import http.cookiejar
 import json
@@ -17,13 +18,17 @@ import urllib.request
 
 GOOGLE = "https://www.google.com"
 RPC_URL = "/maps/_/MapsWizUi/data/batchexecute?rpcids=hspqX&hl=en&rt=c"
+POSTS_URL = "/maps/preview/localposts?authuser=0&hl=en&pb="
 USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36")
 TIMEOUT = 30
 ATTEMPTS = 3
-# Google returns at most ~80 items per page whatever is asked. Asking for 20 makes the list
-# end early (87 items instead of 98 on a place where 100 gives 98), so ask for 100.
-PAGE_SIZE = 100
+# How many gallery items to ask for per request. The number changes what Google returns in total:
+#   20  - what the Maps page itself asks for; gives exactly what a person sees on the site
+#         (87 items on a place where the site shows 85 photos and 2 panoramas);
+#   100 - gives more (98 on the same place): Google then also returns photos the site does not show.
+# We want the same view a visitor has, so 20.
+PAGE_SIZE = 20
 PAUSE_SECONDS = 1.0
 # Which media kinds to return; copied unchanged from the request the Maps page sends.
 MEDIA_FILTERS = [[[1, 0, 3], [2, 1, 2], [2, 0, 3], [8, 0, 3], [10, 0, 3], [10, 1, 2], [10, 0, 4], [9, 1, 2]], 1]
@@ -131,6 +136,23 @@ class MapsSession:
         """Send one gallery request; return (request body as sent, response as {status, url, text})."""
         body = _request_body(fid, mid, page_token)
         return body, self._post(GOOGLE + RPC_URL, body)
+
+    def list_posts(self, fid):
+        """Return the raw posts Google Maps lists for the place, newest first. It lists the latest 10 only."""
+        posts, page_token = [], None
+        while True:
+            # Copied from the request the Maps page sends: !1e2 list mode, !4B page token, !8s the place.
+            pb = "!1e2" + (f"!4B{page_token}" if page_token else "") + f"!8s{fid}"
+            text, _ = self._get(GOOGLE + POSTS_URL + urllib.parse.quote(pb, safe="!:"))
+            data = json.loads(text.split("\n", 1)[1])       # [[author, posts, 1], next page token] or []
+            page = data[0][1] if data and data[0] and len(data[0]) > 1 and data[0][1] else []
+            posts.extend(page)
+            token = data[1] if len(data) > 1 else None
+            if not page or not token:
+                return posts
+            # The token arrives as standard base64; the URL takes the URL-safe alphabet without padding.
+            page_token = base64.urlsafe_b64encode(base64.b64decode(token)).decode().rstrip("=")
+            time.sleep(PAUSE_SECONDS)
 
     def list_gallery(self, fid, mid):
         """Return (items, total): every gallery item Google lists for the place and the count it claims.

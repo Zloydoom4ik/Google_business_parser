@@ -13,7 +13,7 @@ import json
 import urllib.parse
 
 from gbp_parser import config
-from gbp_parser.__main__ import load_places
+from gbp_parser.places import load_places
 from gbp_parser.maps_client import RPC_URL, MapsSession, _payload
 from gbp_parser.parse import parse_item
 
