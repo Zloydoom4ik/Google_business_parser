@@ -8,7 +8,7 @@ import sys
 from collections import Counter
 
 from . import config, db
-from .download import download_original
+from .download import download_all
 from .maps_client import MapsSession
 from .parse import parse_item
 from .places import verified_places
@@ -37,9 +37,8 @@ def sync():
                   + ", ".join(f"{n} {contributor} {kind}" for (kind, contributor), n in sorted(counts.items())))
 
             pending = db.owner_photos_without_file(conn, place_id)
-            for number, photo in enumerate(pending, 1):
-                path, size, sha256 = download_original(photo["url"], place["folder"],
-                                                       photo["uploaded_at"], photo["google_id"])
+            downloads = download_all(pending, place["folder"], "url", "uploaded_at")
+            for number, (photo, path, size, sha256) in enumerate(downloads, 1):
                 db.mark_downloaded(conn, photo["id"], path, size, sha256)
                 print(f"  downloaded {number}/{len(pending)}  {path}", flush=True)
             if not pending:

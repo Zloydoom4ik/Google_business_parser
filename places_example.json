@@ -1,0 +1,12 @@
+[
+  {
+    "name": "Example Repair Shop",
+    "address": "123 Main St",
+    "maps_url": "https://www.google.com/maps/place/Example+Repair+Shop/data=!4m6!3m5!1s0x0000000000000001:0x0000000000000001!8m2!3d40.7000000!4d-74.0000000!16s%2Fg%2F11aaaaaaaa"
+  },
+  {
+    "name": "Example Repair Shop",
+    "address": "45 Second Ave",
+    "maps_url": "https://www.google.com/maps/place/Example+Repair+Shop/data=!4m6!3m5!1s0x0000000000000002:0x0000000000000002!8m2!3d40.7100000!4d-73.9900000!16s%2Fg%2F11bbbbbbbb"
+  }
+]

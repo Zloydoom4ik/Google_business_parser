@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from . import db
-from .download import download_original
+from .download import download_all
 from .maps_client import MapsSession
 from .parse import dig
 from .places import verified_places
@@ -53,9 +53,8 @@ def sync_posts():
                     print(f"  post {post.google_id} has {post.image_count} pictures, only the first is downloaded")
 
             pending = db.posts_without_file(conn, place_id)
-            for number, row in enumerate(pending, 1):
-                path, size, sha256 = download_original(row["image_url"], place["folder"], row["posted_at"],
-                                                       row["google_id"], subfolder="posts")
+            downloads = download_all(pending, place["folder"], "image_url", "posted_at", subfolder="posts")
+            for number, (row, path, size, sha256) in enumerate(downloads, 1):
                 db.mark_post_downloaded(conn, row["id"], path, size, sha256)
                 print(f"  downloaded {number}/{len(pending)}  {path}", flush=True)
             if not pending:
