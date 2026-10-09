@@ -8,6 +8,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from . import config
 
 EXTENSIONS = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif"}
+# The date at the start of a file name, per subfolder. Google gives a photo's upload time to the hour
+# and a post's time to the second (stored as UTC), so each name is as exact as its date.
+DATE_FORMATS = {"photos": "%Y-%m-%d_%Hh", "posts": "%Y-%m-%d_%Hh%Mm%Ss"}
 ATTEMPTS = 3
 WORKERS = 8         # files downloaded at the same time
 
@@ -27,7 +30,7 @@ def _fetch(url):
 def download_original(url, folder, uploaded_at, google_id, subfolder="photos"):
     """Save the full-size file; return (path relative to data/, size in bytes, sha256)."""
     data, content_type = _fetch(url + "=s0")
-    date = uploaded_at.strftime("%Y-%m-%d_%Hh") if uploaded_at else "undated"
+    date = uploaded_at.strftime(DATE_FORMATS[subfolder]) if uploaded_at else "undated"
     relative = f"{folder}/{subfolder}/{date}_{google_id}{EXTENSIONS.get(content_type, '.bin')}"
     path = config.DATA_DIR / relative
     path.parent.mkdir(parents=True, exist_ok=True)

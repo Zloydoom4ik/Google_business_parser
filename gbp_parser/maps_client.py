@@ -122,7 +122,7 @@ class MapsSession:
         raise MapsError('No "Reject all" form on the Google consent page')
 
     def open_place(self, maps_url):
-        """Return the (name, address) Google shows for the place behind a Maps link."""
+        """Return the (name, address) Google shows for the place behind a Maps link; None when it shows no place."""
         page, _ = self._get(_in_english(maps_url))
         # The page's own HTML only says "Google Maps"; it names a second address to load the place card from.
         link = re.search(r'href="(/maps/preview/place[^"]+)"', page)
@@ -130,7 +130,8 @@ class MapsSession:
             raise MapsError(f"No place card link on the page of {maps_url}")
         text, _ = self._get(GOOGLE + html.unescape(link.group(1)))
         card = json.loads(text.split("\n", 1)[1])[6]    # the first line is the anti-JSON-hijacking prefix )]}'
-        return card[11], card[39]
+        # When Google no longer shows the place, the card is a stub of two ids and the gallery and posts are empty.
+        return (card[11], card[39]) if len(card) > 39 else None
 
     def fetch_gallery_page(self, fid, mid, page_token=None):
         """Send one gallery request; return (request body as sent, response as {status, url, text})."""

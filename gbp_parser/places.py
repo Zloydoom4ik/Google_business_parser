@@ -45,7 +45,8 @@ def fill_from_google(place, shown_name, shown_address):
 def verified_places(conn, maps):
     """Yield (place, its row id) for every place in places.json, skipping those that fail the check."""
     for place in load_places():
-        problem = fill_from_google(place, *maps.open_place(place["maps_url"]))
+        shown = maps.open_place(place["maps_url"])
+        problem = fill_from_google(place, *shown) if shown else "Google shows no place behind this link"
         if problem:
             print(f"\n{place['maps_url']}\n  SKIPPED: {problem}")
             continue
